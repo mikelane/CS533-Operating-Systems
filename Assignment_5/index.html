@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="/~kstew2/style.css" type="text/css" media="screen" title="no title" charset="utf-8">
+<title>Assignment 5: M:N Threading</title>
+</head>
+<body>
+<div id=content>
+<h1>Assignment 5: M:N Threading</h1>
+
+<p><strong>Due Friday, December 4th</strong></p>
+
+<h2>Overview</h2>
+
+<p>So far, our system has been an "N:1" system; that is, it has been <em>N</em>
+user-level threads running on a single kernel thread. This is suitable
+for so-called "cooperative task management", which is useful for separating
+the compute-bound and I/O-bound portions of a program. You can do quite
+a bit with N:1 threading, like constructing a web server or GUI application.</p>
+
+<p>However, N:1 threading is not suitable for applications that want to take
+advantage of multi-processor parallelism. A parallel application could instead
+do "1:1" threading, where each thread it wants to create runs on its own kernel
+thread. Linux's implementation of the <code>pthread_create</code> interface does exactly
+this.</p>
+
+<p>A disadvantage of using 1:1 threading with <code>pthreads</code> is that there is no
+built-in mechanism for job control. Take the simple parallel mergesort
+application introduced in Assignment 4 (<a href="../assign4/
+sort_test.c"><code>sort_test.c</code></a>). This application creates O(n/m) threads for a list of size n and
+sequential threshold m. If we tried to use <code>pthreads</code> for this, we could quickly
+overwhelm the operating system with work, griding all applications (not just our
+user-level threads program) to a halt.</p>
+
+<p>The normal solution would be to force the application to keep track of the
+number of kernel threads it creates, but this complicates the parallel algorithm
+with book-keeping work that is irrelevant to the problem it's trying to solve.</p>
+
+<p>Fortunately, there is a solution that allows the application to be simple
+without overwhelming the system: "M:N" threading, sometimes called "hybrid"
+threading, is an approach where <em>M</em> user-level threads are multiplexed over <em>N</em>
+kernel threads. <em>M</em> might be as high as the application wants, but the library
+can set an upper bound on <em>N</em> that is appropriate for the underlying hardware.
+If <em>M</em> is greater than <em>N</em>, the excess work will be automatically queued up on a
+ready list, just as it is in an N:1 system.</p>
+
+<p>In this assignment, we will extend our user-level threads library into an M:N
+threading system. This a is long, difficult and complex task (do not wait until
+the eleventh hour to begin!), but we'll try to break it down and consider it one
+step at a time to make it manageable.</p>
+
+<h2>Design and Implementation Considerations</h2>
+
+<p>We have quite a few choices regarding how to design and implement an M:N
+system with our existing library. To narrow the space a little bit,
+we suggest some decisions below.</p>
+
+<h3>Scheduler Design</h3>
+
+<p>Have a look at <a href="figure1.md">Figure 1</a>, which summarizes the operation of our
+current N:1 scheduler.</p>
+
+<p>The simplest way to extend this is to keep a single ready list, but have
+each kernel thread execute a single user-level thread at a time. However,
+we must consider the case where there are more kernel threads than
+user-level threads. To keep things simple, we will have the surplus kernel
+threads simply poll for work by creating idle threads for each new kernel
+thread. <a href="figure2.md">Figure 2</a> illustrates this design.</p>
+
+<h3>The "<code>current_thread</code>" Problem</h3>
+
+<p>Have a look at your scheduler's code. The global symbol <code>current_thread</code> is 
+used all over the place in queue operations and thread state management.</p>
+
+<p>Now have a look at <a href="figure2.md">Figure 2</a> again. Each kernel thread has its
+<strong>own</strong> notion of a "current thread". Thus <code>current_thread</code> can no longer be a
+global variable. But the same user-level thread might be executing on different
+kernel threads at different times, and it still has to execute the same code.
+How can we make <code>current_thread</code> a symbol that refers to different things
+depending on which kernel thread a user-level thread is executing on?</p>
+
+<p>The answer is that <code>current_thread</code> must not be a global variable, but rather a 
+function that resolves to a different thread depending on which kernel thread
+executes it. There are several ways to implement this function;  we'll use
+the simple (yet inefficient) method of making a <code>gettid</code> system call and
+maintaining a mapping of kernel thread IDs to user-level thread control blocks.</p>
+
+<p>To save you some time, this functionality has been implemented in
+<a href="threadmap.c"><code>threadmap.c</code></a>. This contains the following functions:</p>
+
+<pre><code>    void set_current_thread(struct thread *);
+    struct thread * get_current_thread(void);
+</code></pre>
+
+<p>If you want to make minimal changes to your existing code, you can
+define the following macro in <code>scheduler.h</code>:</p>
+
+<pre><code>    #define current_thread (get_current_thread())
+</code></pre>
+
+<p>This will transparently replace any instances of <code>current_thread</code> with the
+<code>get_current_thread</code> function call. However, you will still have to manually
+replace any <em>assignments</em> you make to <code>current_thread</code> with the
+<code>set_current_thread</code> function call.</p>
+
+<p>Thus something like:</p>
+
+<pre><code>    current_thread-&gt;state = READY;
+</code></pre>
+
+<p>Need not change, but:</p>
+
+<pre><code>    current_thread = next_thread;
+</code></pre>
+
+<p>Would become:</p>
+
+<pre><code>    set_current_thread(next_thread);
+</code></pre>
+
+<h3>Creating a New Kernel Thread</h3>
+
+<p>On Linux, new kernel threads are created via the <a href="http://man7.org/
+linux/man-pages/man2/clone.2.html"><code>clone</code></a> system call.</p>
+
+<p><code>clone</code> looks a slightly lower level version of our <code>thread_fork</code> function:
+it takes a target function (<code>fn</code>) to execute, and an initial argument (<code>arg</code>),
+but it also requires that you supply a region of memory to be used for the
+child stack (<code>child_stack</code>). This parameter should be a pointer to the <em>end</em> of
+a region of memory, just like how we created our user-level thread stacks
+in <code>thread_fork</code>.</p>
+
+<p>The <code>flags</code> parameter is what determines much of the behavior of <code>clone</code>. 
+Read the <a href="http://man7.org/linux/man-pages/man2/clone.2.html"><code>clone</code> man page</a>
+to get a sense for what these flags do. In our case, we'll want <code>flags</code> to
+at least consist of the following:</p>
+
+<pre><code>    CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | CLONE_FILES | CLONE_FS | CLONE_IO
+</code></pre>
+
+<p>The first three are straightforward (and have to be supplied together). Think
+about why we would want the last three if an application did any I/O.</p>
+
+<p>In order to use <code>clone</code>, your implementation file (<code>scheduler.c</code>) must
+<code>#include &lt;sched.h&gt;</code>, but it must <strong>first</strong> <code>#define _GNU_SOURCE</code>, as follows:</p>
+
+<pre><code>  #define _GNU_SOURCE
+  #include &lt;sched.h&gt;
+  ...etc
+</code></pre>
+
+<h2>Your Tasks</h2>
+
+<p>This assignment proceeds incrementally, in stages. Ideally you should
+use a version control system, or at least make a separate directory
+for each stage so that you can preserve and study your previous work as
+you go. Each stage should be tested independently, and all stages
+should be handed in at the end.</p>
+
+<h3>Part 0: Preparation</h3>
+
+<p>Adding concurrency can be a task fraught with strange bugs, so it's important
+to make sure you have a sound system before starting. If you have any issues
+with your scheduler that have been nagging at you, be sure to fix them before
+proceeding.</p>
+
+<p>In addition, it would be wise to bring <a href="threadmap.c"><code>threadmap.c</code></a> into your
+project and do the substitutions described above in "The "<code>current_thread</code>"
+Problem" before going any further. The <code>get_current_thread</code> and
+<code>set_current_thread</code> functions do not need multiple kernel threads to work
+correctly, so you should test that your existing applications that import
+<code>scheduler.h</code> still work properly with the substitution in place.</p>
+
+<h3>Part 1: Adding Concurrency</h3>
+
+<p>Let's start by adding a second kernel thread. Once we've done that,
+we can scale up to adding <em>N</em> kernel threads.</p>
+
+<p>We know that we need to put a call to <code>clone</code> somewhere. Where that call
+goes and what function the <code>fn</code> should be is quite a large design 
+space, so let's fix some choices. It makes sense for the <code>clone</code> call to go in
+<code>scheduler_begin</code>, since that is an explicit call our client must make to
+start the thread library anyway.</p>
+
+<p>Now we need to decide what function will be the initial function of the new
+kernel thread. Let's call it <code>kernel_thread_begin</code>. Much like <code>scheduler_begin</code>,
+it should initialize data structures local to that kernel thread. Assuming the
+design in <a href="figure2.md">Figure 2</a> above, the only kernel-thread local data
+structure is its notion of <code>current_thread</code>. So, <code>kernel_thread_begin</code> should
+create an empty thread table entry, set its state to <code>RUNNING</code>, and then set the
+current thread to that thread table entry. We do not need to allocate a stack
+for it or set an initial function (think about why that is).</p>
+
+<p>Next, <code>kernel_thread_begin</code> should enter the infinite loop described in Fig. 2,
+yielding forever. An astute student might have some concerns about efficiency
+here, but we'll delay discussion of those until later.</p>
+
+<p>This is a difficult stage to test independently. Go ahead and try to run
+one of your existing applications at this point. You will likely find that
+it does not work at all; this is because we now have multiple processors
+making unsynchronized concurrent accesses to the ready list, which will lead to
+data corruption and undefined behavior. You should preserve this failed
+test and hand it in.</p>
+
+<h3>Part 2: Atomic Operations and Spinlocks</h3>
+
+<p>The simplest thing to do to prevent corruption of the ready list is protect
+it with mutual exclusion. However, we can't use our existing blocking
+mutex primitive for this. The correctness of its implementation 
+was dependent on the fact that it was running on a single kernel thread,
+and that it did not yield or get preempted in the middle of its operation.
+This is analogous to an operating system running on a single CPU with
+interrupts disabled.</p>
+
+<p>With a second kernel thread, new situations become possible. 
+For example, if user-level thread A is executing on kernel thread 
+K, and another user-level thread B is executing on a second kernel thread L, then:</p>
+
+<ol>
+<li><p>K and L could be on different CPUs, in which case A and B would execute 
+ simultaneously.</p></li>
+<li><p>K's CPU could be preempted to run L, in which case A's execution could
+ be suspended at an arbitrary point to run B. This is possible
+ even though our user-level scheduler has no preemption, because
+ kernel threads can still be preempted. Note that this can happen regardless
+ of whether or not the underlying hardware is a uniprocessor or multiprocessor.</p></li>
+</ol>
+
+<p>The first situation is true concurrency, while the second is pseudo-concurrency;
+but from the perspective our user-level threads, there is no difference. From A's
+perspective, B's code could run at an arbitrary time in either situation.
+This is analogous to an operating system running on a multiple CPUs.</p>
+
+<p>Since we can now have arbitrary interleaving of instruction sequences, we will
+need atomic instructions in order to build mutual exclusion primitives. Atomic
+instructions are "indivisible".  This means that a kernel thread cannot be
+preempted in the middle of an atomic instruction, and if two kernel threads
+attempt to execute an atomic instruction simultaneously, they will be forced to
+run in sequence. </p>
+
+<p>The simplest mutual exclusion primitive using atomic instructions is a spinlock,
+which requires an atomic "test-and-set" instruction. The C language has no
+notion of atomic instructions, so in order to use a test-and-set in C code on an
+architecture that supports it, we would need to call assembly code directly.
+Furthermore, not all architectures have test-and-set. Some, like x86, have more
+powerful instructions like "compare-and-exchange", though this can be used to
+implement test-and-set.</p>
+
+<p>Fortunately, there is a library that abstracts away a lot of these architecture
+dependent details: It's called <a href="https://github.com/
+ivmai/libatomic_ops"><code>libatomic_ops</code></a>.</p>
+
+<p>Among many other things, <code>libatomic_ops</code> provides the following types, values, 
+functions, and macros: </p>
+
+<pre><code>    /* 
+     * AO_TS_t            type for a test-and-settable variable
+     * AO_TS_INITIALIZER  initial value for an AO_TS_t
+     * AO_TS_SET          value of type AO_TS_VAL_t indicating a held AO_TS_t
+     * AO_TS_CLEAR        value of type AO_TS_VAL_t indicating a free AO_TS_t
+     */
+
+    /*
+     * Atomically test-and-set an AO_TS_t, 
+     * returning its old value as an AO_TS_VAL_t.
+     */
+    AO_TS_VAL_t AO_test_and_set_acquire(AO_TS_t *);
+
+    /*
+     * Atomically clear an AO_TS_t (this is a macro).
+     */
+    AO_CLEAR(AO_TS_t *);
+</code></pre>
+
+<p>You are required to implement a spinlock using these features of <code>libatomic_ops</code>.
+Your spinlock should have the interface:</p>
+
+<pre><code>    void spinlock_lock(AO_TS_t *);
+    void spinlock_unlock(AO_TS_t *);
+</code></pre>
+
+<p><code>libatomic_ops</code> is not a standard library and must be compiled from the source
+code. If you're running on <code>ada</code>, you can save time by using a version 
+that I've already compiled. To do this, <code>#include &lt;atomic_ops.h&gt;</code> in your
+implementation file, and then when compiling, use the following flag:</p>
+
+<pre><code>    gcc -I ~kstew2/local/include ...
+</code></pre>
+
+<p>You should test your spinlock implementation independently of the
+scheduler before proceeding. To save some time, use the following
+program, <a href="spinlock_test.c"><code>spinlock_test.c</code></a>, that does not need to be linked
+with the scheduler; just copy your spinlock implementation into the 
+space indicated in the code. This program also has an example usage of <code>clone</code>.</p>
+
+<p>Now that your spinlock is complete, uncomment the indicated line at the top
+of <code>threadmap.c</code>; this will allow the mapping data structure to be protected
+by your spinlock.</p>
+
+<h3>Aside on <code>malloc</code> and <code>free</code></h3>
+
+<p><code>malloc</code> and <code>free</code> use memory-management data structures that are shared
+between all threads.  When using <code>pthreads</code>, these data structures are protected
+by mutex locks. However, since we're creating kernel threads manually with
+<code>clone</code> rather than <code>pthread_create</code>, we have no such convenience, and thus
+we'll need to protect calls to <code>malloc</code> and <code>free</code> with mutual exclusion.</p>
+
+<p>To save you time, I've provided a wrapper and macros for <code>malloc</code> and <code>free</code>
+that protects all calls with the same spinlock. To use it, add the following
+definitions to the top of <code>scheduler.h</code> <strong>and</strong> <code>queue.c</code> (but not <code>queue.h</code>):</p>
+
+<pre><code>    extern void * safe_mem(int, void*);
+    #define malloc(arg) safe_mem(0, ((void*)(arg)))
+    #define free(arg) safe_mem(1, arg)
+</code></pre>
+
+<p>And the following to <code>scheduler.c</code>:</p>
+
+<pre><code>    #undef malloc
+    #undef free
+    void * safe_mem(int op, void * arg) {
+      static AO_TS_t spinlock = AO_TS_INITIALIZER;
+      void * result = 0;
+
+      spinlock_lock(&amp;spinlock);
+      if(op == 0) {
+        result = malloc((size_t)arg);
+      } else {
+        free(arg);
+      }
+      spinlock_unlock(&amp;spinlock);
+      return result;
+    }
+    #define malloc(arg) safe_mem(0, ((void*)(arg)))
+    #define free(arg) safe_mem(1, arg)
+</code></pre>
+
+<p><strong>NOTE</strong>: As a consequence of this workaround, you'll need to make sure that
+<code>scheduler.h</code> is included <strong>last</strong> in any file which <code>#include</code>s it. This
+is an unsatisfying solution, but will work for our purposes.</p>
+
+<h3>Aside on <code>printf</code></h3>
+
+<p>The buffers used by <code>printf</code> are also shared between threads, and
+so concurrent calls to <code>printf</code> may cause the program to hang or crash.
+It is up to you to make sure any potentially concurrent calls to <code>printf</code>
+are protected with a lock.</p>
+
+<h3>Part 3: Protecting the Scheduler</h3>
+
+<p>Now that we have an effective spinlock, we can use it to protect the scheduler
+from concurrent accesses. Right now, client applications have several ways
+to call into the scheduler:</p>
+
+<ul>
+<li><code>scheduler_begin</code></li>
+<li><code>scheduler_end</code></li>
+<li><code>yield</code></li>
+<li><code>thread_fork</code></li>
+<li>Synchronization primitives like <code>mutex_lock</code>, etc.</li>
+</ul>
+
+<p>We'll worry about the synchronization primitives in the next section. For now,
+let's focus on protecting the other methods.</p>
+
+<p><code>scheduler_begin</code> is straightforward, because any work that needs to be
+done to the ready list (e.g. initialization) can be done before a second
+kernel thread is created.</p>
+
+<p><code>scheduler_end</code> needs to be modified, because calling <code>is_empty</code> on the ready
+list requires exclusive access; otherwise we might observe the ready list
+in an inconsistent state. This means we can no longer write code like this,
+because it does not acquire a spinlock:</p>
+
+<pre><code>    while(is_empty(&amp;ready_list)) { yield(); }
+</code></pre>
+
+<p>Instead, we'll have to write something like this:</p>
+
+<pre><code>    spinlock_lock(&amp;ready_list_lock);
+    while(is_empty(&amp;ready_list)) {
+      spinlock_unlock(&amp;ready_list_lock);
+      yield();
+      spinlock_lock(&amp;ready_list_lock);
+    }
+    spinlock_unlock(&amp;ready_list_lock);
+</code></pre>
+
+<hr />
+
+<p>Now, both <code>yield</code> and <code>thread_fork</code> perform context switches.
+These make our lives more complicated. Obviously, these routines
+should acquire a spinlock before putting the current thread on the
+ready list. But when should that spinlock be released? If we release
+it before doing the switch, then another kernel thread might see the thread we
+had just enqueued on the ready list and try to run it. But it would 
+run an old version, since the switch had not saved its registers and stack
+pointer yet! Clearly, we have to release the spinlock <em>after</em> the context
+switch. </p>
+
+<p>The complication here is that <code>thread_switch</code> returns into a different thread
+than the one that called it, so how can we make sure that this next thread
+releases the lock? </p>
+
+<p>We could modify the <code>thread_start</code> and <code>thread_switch</code> assembly routines to
+release the ready list lock before returning, but we could also enforce the
+invariant that all paths into <code>thread_switch</code> and <code>thread_start</code> must have the
+ready list lock acquired, and all paths out of <code>thread_switch</code> and
+<code>thread_start</code> release the ready list lock.  This requirement should be an
+explicit comment in the implementation of <code>thread_start</code> and <code>thread_switch</code>.</p>
+
+<p>That is, the statement after <code>thread_switch</code> and <code>thread_start</code> must be
+a release of the ready list lock.</p>
+
+<p>This is a bit of a brain teaser, so let's break it down case by case.
+Consider first the case where a thread is <code>yield</code>ing to a thread that 
+itself got switched out because it called <code>thread_switch</code>:</p>
+
+<pre><code>    Locked:     Thread A:                 Thread B:            
+                                                 .
+                // Thread A code                 .  
+                                                 .   
+                enter yield                      .  
+       x          lock ready                     .  
+       x          enter switch(A, B)             .
+       x            save A's regs+sp             .
+       x            load B's sp+regs             .
+       x            return ---------------&gt; exit switch(B, A)
+       x               .                    unlock ready
+                       .                  exit yield
+                       .                                       
+                       .                  // Thread B code
+                       .                                       
+                       .                  enter yield
+       x               .                    lock ready
+       x               .                    enter switch(B, A)
+       x               .                      save B's regs+sp
+       x               .                      load A's sp+regs
+       x          exit switch(A, B) &lt;-------- return
+       x          unlock ready                   .  
+                exit yield                       . 
+                                                 .
+                // Thread A code                 .
+                                                 .
+</code></pre>
+
+<p>Note that a crucial property here is that the ready list lock is <em>not</em> held
+whenever a thread is executing normal code that does not manipulate
+the ready list (indicated by the lines <code>Thread A code</code>, <code>Thread B code</code>, etc). </p>
+
+<hr />
+
+<p>What about the other case, where the thread we are switching to never
+got switched out, but is a new thread? We must add an unlock operation
+to <code>thread_wrap</code>, as follows:</p>
+
+<pre><code>     Locked:     Thread A:                  Thread B:                       
+
+                // Thread A code                     
+
+                enter thread_fork                    
+        x         lock ready                               
+        x         enter start(A, B)                                        
+        x           save A's regs+sp                                       
+        x           jmp to thread_wrap ---&gt; enter thread_wrap
+        x              .                     unlock ready
+                       .                     enter initial_function
+                       .                       // Thread B code
+                       .                                                  
+                       .                       enter yield
+        x              .                         lock ready
+        x              .                         enter switch(B, A)
+        x              .                           save B's regs+sp
+        x              .                           load A's sp+regs
+        x          exit start(A, B) &lt;------------- return
+        x          unlock ready                       .     
+                 exit thread_fork                     .
+                                                      .
+                 // Thread A code                     .
+                                                      .
+                 enter yield                          .
+        x          lock ready                         .
+        x          enter switch(A, B)                 .
+        x           save A's regs+sp                  .
+        x           load B's sp+regs                  .
+        x           return -------------------&gt;  exit switch(B, A)
+        x              .                         unlock ready
+                       .                       exit yield
+                       .                                                  
+                       .                       // Thread B code
+                       .                                                  
+                       .                     exit initial_function
+                       .                     current_thread-&gt;state = DONE
+                       .                                                  
+                       .                     enter yield
+        x              .                       lock ready
+        x              .                       enter switch(B, A)
+        x              .                         save B's regs+sp
+        x              .                         load A's sp+regs
+        x          exit switch(A, B) &lt;---------- return
+        x          unlock ready            
+                 exit yield                
+
+                 // Thread A code
+</code></pre>
+
+<hr />
+
+<p>At this point your implementation should be complete enough to write an
+interesting test application (provided it does not attempt to use any blocking
+primitives, which are discussed in the next section). </p>
+
+<h3>Part 4: Multiprocessor Blocking Primitives</h3>
+
+<p>Earlier, we noted that using blocking primitives (e.g. <code>mutex_lock</code>) 
+on a multiprocessor requires using a spinlock to protect the waiting queue
+of the blocking primitive. </p>
+
+<p>Clearly a thread about to block needs to acquire that spinlock
+to add itself to the waiting queue. But much like with the ready list, we face
+the question of when to release that spinlock. If a thread releases the spinlock
+before blocking, then another thread could pull it off the waiting queue
+and add it to the ready list, even though its stack pointer and registers
+had not been saved by a context switch.</p>
+
+<p>The solution is to release the waiting queue's spinlock only after the
+ready list lock has been acquired -- this will prevent a thread from enqueuing
+a blocking thread on the ready list until after its state has been saved.</p>
+
+<p>However, we cannot acquire the ready list lock twice, e.g. by locking
+the ready list and then calling <code>yield</code>, as this will self-deadlock.
+So we can add a new function:</p>
+
+<pre><code>  void block(AO_TS_t * spinlock)
+</code></pre>
+
+<p>Which is exactly the same as <code>yield</code>, except that it releases the
+<code>spinlock</code> parameter after acquiring the ready list lock.</p>
+
+<p>Thus, an execution sequence for a pair of  concurrent <code>mutex_lock</code> and
+<code>mutex_unlock</code> operations might proceed correctly as follows: </p>
+
+<pre><code>  Thread A:                  Thread B:                            
+
+  mutex_lock(m)                                                 
+    lock m-&gt;s                                                     
+    find that m is held                                         
+    add A to m-&gt;waiting      mutex_unlock(m)                      
+    A-&gt;state=BLOCKED           lock m-&gt;s                          
+    block(m-&gt;s)                  spin ...                         
+      lock ready                 spin ...                         
+      unlock m-&gt;s                spin ... acquire!                
+      switch(A, C)             find that m-&gt;waiting is non-empty   
+                               grab A from m-&gt;waiting              
+  Thread C:                    lock ready                         
+                                 spin ...                         
+      unlock ready               spin ... acquire!                
+                               A-&gt;state=READY                     
+                               m-&gt;held = A                        
+                               add A to ready list                
+                               unlock ready                       
+                               unlock m-&gt;s
+</code></pre>
+
+<p>Your task is to implement <code>block</code>, and then upgrade your mutex and condition
+variable implementations to work with multiple kernel threads. </p>
+
+<h3>Part 5: Scalability and Discussion</h3>
+
+<p>The design we have suggested has several issues with scalability. 
+To help you explore these issues, we have provided an adapted version
+of the parallel mergesort test from the last assignment: <a href="
+sort_test.c"><code>sort_test.c</code></a>. This program takes 3 command line arguments: the number of kernel
+threads to use, the size of the array to sort, and the minimum sub-array size
+before the algorithm switches to a selection sort. It assumes that 
+<code>scheduler_begin</code> has been parameterized to allow for the creation
+of an arbitrary number of kernel threads.</p>
+
+<p>Explore the performance of the parallel mergesort by using the <code>time</code> command
+as you vary the program's parameters. Ideally, we'd like to see a linear
+speedup as we increase the number of threads. However, you will find that this is not
+the case, because of sequential bottlenecks and other overhead in the scheduler.</p>
+
+<p>Your task is to identify at least limitation on the scalability of the
+scheduler. If you can, attempt to modify the scheduler to improve this 
+limitation, and see if it has a positive effect on the performance of mergesort.</p>
+
+<p>Write up your findings in your report, including the limitations you have
+identified, as well as what you did to fix them, or what you think would
+be an effective improvement.</p>
+
+<h2>What To Hand In</h2>
+
+<p>You should submit:</p>
+
+<ol>
+<li><p>All code, including tests, for each stage that you complete.</p></li>
+<li><p>A written report, including:</p>
+
+<ol>
+<li>A description of what you did and how you tested it.</li>
+<li>The results of your efforts from Part 5, above.</li>
+</ol></li>
+</ol>
+
+<p>Please submit your code files <em>as-is</em>; do not copy them into a Word 
+document or PDF.<br>
+Plain text is also preferred for your write-up.<br>
+You may wrap your files in an archive such as a .tar file.</p>
+
+<p>Email your submission to the TA at <u>kstew2 at cs.pdx.edu</u> on or before the
+due date. The subject line should be "CS533 Assignment 5".</p>
+
+<h2>Need Help?</h2>
+
+<p>If you have any questions or concerns, or want clarification, feel free
+to <a href="/kstew2/cs533/">contact the TA</a> by coming to office hours or sending an
+email.</p>
+
+<p>You may also send an email to the 
+<a href="https://mailhost.cecs.pdx.edu/mailman/listinfo/cs533">class mailing list</a>. Your
+peers will see these emails, as will the TA and professor.</p>
+
+</div>
+</body>
+</html>

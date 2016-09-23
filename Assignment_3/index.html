@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="/~kstew2/style.css" type="text/css" media="screen" title="no title" charset="utf-8">
+<title>Assignment 3: Asynchronous I/O</title>
+</head>
+<body>
+<div id=content>
+<h1>Assignment 3: Asynchronous I/O</h1>
+
+<p><strong>Due Friday, November 6th</strong></p>
+
+<h2>Overview</h2>
+
+<p>At this point, our thread interface is well-defined enough to write
+programs that can interleave various computations by cooperatively
+yielding between them. This is interesting, but in order to write
+useful programs, we'd like to be able to interleave computation
+with blocking I/O.</p>
+
+<p>The problem with this is that all of our user-level threads are
+running on a single kernel thread; if just one of our user-level threads
+does blocking I/O, the kernel thread becomes blocked, and thus <em>all</em>
+of our user-level threads becomes blocked.</p>
+
+<p>What are some solutions to this problem? </p>
+
+<ul>
+<li><p>We could <a href="http://moais.imag.fr/membres/
+vincent.danjean/linux-activations.html">modify the Linux kernel</a> to implement <a href="http://www.cs.pdx.edu/~walpole/class/
+cs533/papers/Scheduler.pdf">scheduler
+activations</a>, though such an undertaking is beyond 
+the scope of a this project.</p></li>
+<li><p>We could "wrap" blocking I/O calls such that they called into
+our user-level scheduler, which would then block the user-level thread 
+while it either:</p>
+
+<ul>
+<li><p>Used the Linux kernel thread 
+interface (either directly through <a href="http://man7.org/linux/
+man-pages/man2/clone.2.html">clone</a> or indirectly through <a href="http://
+man7.org/linux/man-pages/man7/pthreads.7.html">Pthreads</a> to create
+a new kernel thread to perform the blocking I/O.</p></li>
+<li><p>Used Linux's implementation of the POSIX <a href="http://man7.org/linux/man-pages/man7/aio.7.html">asynchronous I/O 
+interface</a> 
+to perform the I/O. (Interestingly, Linux's implementation of POSIX AIO 
+uses exactly the Pthreads approach described above).</p></li>
+</ul>
+
+<p><p>In either case, once the I/O is complete, the scheduler would 
+unblock the thread that initiated the blocking call and provide
+it with the results of I/O.</p></li>
+</ul>
+In this assignment, we will use the wrapper approach with POSIX AIO
+to implement a wrapper that emulates the <code>read</code> system call. <code>read</code> is used 
+to perform blocking I/O on a file descriptor. Our wrapper should
+mirror the semantics of <code>read</code> as closely as possible, while only
+blocking one user-level thread.</p>
+
+<p>At this point, our system is beginning to approach the "sweet spot"
+described in <a href="http://web.cecs.pdx.edu/~walpole/
+class/cs533/papers/USENIX2002.pdf">Adya, et al.</a>:
+cooperative task management with automatic stack management.</p>
+
+<h2>Preparation</h2>
+
+<p>Successfully completing this assignment requires you to read, understand,
+and interact with a potentially unfamiliar interface.</p>
+
+<p>Before continuing, thoroughly read the following Linux <code>man</code> pages:</p>
+
+<ul>
+<li><a href="http://man7.org/linux/man-pages/man7/aio.7.html"><code>aio(7)</code></a></li>
+<li><a href="http://man7.org/linux/man-pages/man3/aio_read.3.html"><code>aio_read(3)</code></a></li>
+<li><a href="http://man7.org/linux/man-pages/man3/aio_error.3.html"><code>aio_error(3)</code></a></li>
+<li><a href="http://man7.org/linux/man-pages/man3/aio_return.3.html"><code>aio_return(3)</code></a></li>
+</ul>
+
+<p>You may find it helpful to brush up on the syntax and semantics of the 
+synchronous <code>read</code> call:</p>
+
+<ul>
+<li><a href="http://man7.org/linux/man-pages/man2/read.2.html"><code>read(2)</code></a></li>
+</ul>
+
+<p>The following will also be helpful (though you can safely
+ignore the section about "holes"):</p>
+
+<ul>
+<li><a href="http://man7.org/linux/man-pages/man2/lseek.2.html"><code>lseek(2)</code></a></li>
+</ul>
+
+<h2>Design Choices</h2>
+
+<h3>Managing Notification: Signals vs. Polling</h3>
+
+<p>Now that we have a general idea of what we want to implement and what interface
+we are going to use, we have some important design choices to make.  The first
+question is how we'd like our scheduler to be notified that an asynchronous I/O
+request has finished. In general, the choices are: having the kernel generate
+some kind of asynchronous software interrupt (this is called a "signal" in 
+UNIX/Linux), or synchronously polling for a result. </p>
+
+<p>Signals are naturally preemptive, and thus introduce the possibility of
+a signal handler entering into a race condition with the scheduler if they
+need to manipulate the same data. If we had a preemptive scheduler,
+we would already have machinery to deal with this, 
+but since our system is cooperative, polling is easier to implement.</p>
+
+<p>If you have a look at the <code>aio</code> man page, you'll see that an <code>aiocb</code>
+(asynchronous I/O control block) has several fields that specify
+the semantics of the request. One of these is <code>aio_sigevent</code>, which
+"specifies how the caller is to be notified when the I/O request completes." 
+<code>aio_sigevent</code> has a subfield called <code>sigev_notify</code>, and its 
+possible values are <code>SIGEV_NONE</code>, <code>SIGEV_SIGNAL</code>, and <code>SIGEV_THREAD</code>. 
+These are described further in <a href="http://man7.org/linux/man-pages/
+man7/sigevent.7.html"><code>sigevent(7)</code></a>, but suffice to say that <code>SIGEV_NONE</code> is the correct
+choice for a polling approach. If <code>SIGEV_NONE</code> is selected, none of the
+other fields in <code>aio_sigevent</code> need to be specified.</p>
+
+<p>See the man page for <a href="http://man7.org/linux/man-pages/man3/
+aio_error.3.html"><code>aio_error</code></a> to see how you might poll for the status of an outstanding
+AIO request.</p>
+
+<p><a name='blocking'></p>
+
+<h3>Managing Thread State: Blocking vs. Busy-waiting</h3>
+
+<p>Parallel to the question of how our scheduler is to be notified of a completed
+I/O request is how the scheduler should manage the state of the thread
+that performed the request. Typical descriptions of cooperative multithreading
+(e.g. in Adya et al.), suggest that the user-level thread should be blocked
+during the request.</p>
+
+<p>What does it mean for a thread to be blocked? Generally it means that the
+thread is not enqueued on the ready list, but is instead placed on a separate
+waiting queue related to the specific blocking event 
+(such as a lock or condition variable). </p>
+
+<p>Let's say we decide to use special condition variables to represent 
+pending I/O calls that have the <code>aiocb</code> as part of their structure. 
+As part of the blocking call, the thread would enqueue one of these
+condition variables into a <code>pending_IO</code> list maintained by the scheduler,
+and then block on that condition variable.</p>
+
+<p>On each entry into the scheduler from an active thread, we could scan the
+<code>pending_IO</code> list, polling the status of each request. Completed requests would
+be removed from the list, and the scheduler would signal that condition
+variable, waking up the blocked thread.</p>
+
+<p>This is a somewhat reasonable design, but it requires extra data structures (the
+<code>pending_IO</code> list and special condition variables) to implement, and involves
+potentially wasted work scanning the pending list on every scheduler call.</p>
+
+<p>However, if we have already accepted the overhead of polling for event
+completion, then we can just have the thread making the request busy-wait
+instead of block. Each time it runs, it can check the status of its request
+using a local <code>aiocb</code> variable. If the request has not yet completed,
+the thread will yield.</p>
+
+<p>The busy-waiting solution involves no extra data structures or copying of data,
+and no extra queue manipulation. It is faster and easier to implement, and it is
+the design you should use for this assignment.</p>
+
+<h4>A note on efficiency</h4>
+
+<p>Note that any solution involving polling requires the scheduler
+to perform an <em>O(n)</em> operation, where <em>n</em> is the number of threads
+with a pending I/O request. In the blocking case, the scheduler must
+scan the list of blocked threads and poll the I/O request of each of them.
+In the busy-waiting case, the scheduler must run every waiting thread
+so it can poll its own I/O request. </p>
+
+<p>Recall (<a href="http://web.cecs.pdx.edu/
+~walpole/class/cs533/papers/threads-hotos-2003.pdf">from section 2.2 in Behren, et al.</a>) that <em>O(n)</em> 
+scheduler operations can introduce unacceptable latency
+to a workload where most threads are waiting for I/O (such as a web server). If
+we wanted a more scalable approach, we'd have to devise a solution that used
+signals instead of polling. You don't have to implement such a solution here,
+but you are asked to think about how you might do it in "Discussion", below.</p>
+
+<h2>Implementation</h2>
+
+<ol>
+<li><p>Start a new file, <code>async.c</code>. Because our design involves busy-waiting,
+if your scheduler's implementation
+from <a href="../assign2">the previous assignment</a> is sound, you will
+not have to modify any part of your previous work.</p></li>
+<li><p>In addition to your <code>scheduler.h</code> file, <code>async.c</code> should <code>#include</code>
+the following libraries (there are some strong hints here about
+which functions you might need to use):</p>
+
+<p><table style="margin-left:20px">
+    <tr>
+      <td><code>&lt;aio.h&gt;</code></td> 
+      <td>For <code>struct aiocb</code>, <code>aio_read</code>, <code>aio_error</code>, <code>aio_return</code>.
+    </tr>
+    <tr> 
+      <td><code>&lt;errno.h&gt;</code></td>
+      <td>For <code>EINPROGRESS</code>.</td>
+    </tr>
+    <tr>
+      <td><code>&lt;unistd.h&gt;</code></td> 
+      <td>For <code>lseek</code>, <code>SEEK_CUR</code>, <code>SEEK_END</code>, <code>SEEK_SET</code>.</td>
+    </tr>
+    <tr>
+      <td><code>&lt;string.h&gt;</code></td>
+      <td>For <code>memset</code>.</td>
+    </tr>
+  </table></p>
+
+<p>You will also have to compile your code with the <code>-lrt</code> flag, for example:</p>
+
+<pre><code>   gcc switch.s scheduler.c queue.c async.c main.c -lrt
+</code></pre>
+
+<p>Or more compactly (provided no other code is in your directory):</p>
+
+<pre><code>   gcc *.s *.c -lrt
+</code></pre>
+
+<p>This flag links your code with the "realtime" library, which includes
+the <code>aio</code> family of functions.</p></li>
+<li><p>Write a function, <code>read_wrap</code>. It should have exactly the same
+signature as <code>read</code>:</p>
+
+<pre><code>   ssize_t read_wrap(int fd, void * buf, size_t count) {
+      // your code here!
+   }
+</code></pre>
+
+<p>Use the AIO interface to create an AIO control block and initiate
+an appropriate asynchronous read. Yield until the request is complete.</p>
+
+<p><code>read_wrap</code> should have as close to the semantics of <code>read</code> as possible.
+That is, it should return the same value that <code>read</code> would have, and
+put the same result into <code>buf</code> that <code>read</code> would have.</p>
+
+<p>Furthermore, if the file is seekable, <code>read_wrap</code> should 
+start reading from the current position in the file, and then seek to the 
+appropriate position in the file, just as <code>read</code> would have. This is arguably
+the most difficult part of this assignment, since <code>aio_read</code> does not seek
+automatically.</p></li>
+</ol>
+
+<h2>Testing</h2>
+
+<h3>Correct Scheduling Behavior</h3>
+
+<p>You should write a test that proves that <code>read_wrap</code> correctly only suspends
+the current thread, allowing other threads to continue during the I/O.</p>
+
+<p>The easiest way to do this is to re-use your test code from assignment 2, but
+add a thread that reads from standard input (<code>fd=STDIN_FILENO</code>), which should
+cause the thread to wait until the user inputs something at the terminal and
+presses enter. Ensure that your computations proceed while the reading thread is
+busy-waiting, and that the thread properly resumes when input arrives.</p>
+
+<h3>Correct Reading Semantics</h3>
+
+<p>Furthermore, it is you should ensure that your implementation 
+of <code>read_wrap</code> mirrors the semantics of <code>read</code> as closely as possible. 
+This means that you should test that <code>read_wrap</code> correctly returns the same
+number of bytes as <code>read</code>, and that <code>read_wrap</code> returns an error 
+whenever <code>read</code> returns an error. If you are up to the challenge,
+you can also try and ensure that <a href="http://man7.org/linux/
+man-pages/man3/errno.3.html"><code>errno</code></a> is maintained correctly.</p>
+
+<p>You should also test that <code>read_wrap</code> has the same seeking behavior as <code>read</code>.
+Standard input, pipes, and sockets are not seekable, so you will have to run
+tests on a real file. See
+<a href="http://man7.org/linux/man-pages/man2/open.2.html"><code>open(2)</code></a> for more on how to
+create a new file descriptor from a path name. Test code that uses <code>open</code> must
+<code>#include &lt;fcntl.h&gt;</code>.</p>
+
+<h3>Snake Game!</h3>
+
+<p>To show off the utility of our library so far, I've written a "snake game" that
+uses it.<br><a href="snake.c">Here is the source code</a>. In addition to writing your own
+tests, you may try linking your library with the game code to see if you can get
+it to compile and run. Think of it as your reward for a successful
+implementation!</p>
+
+<h2>Discussion</h2>
+
+<p>Put your responses to these questions in your writeup.</p>
+
+<ol>
+<li><p>In class, we've talked about how to synchronize in in a cooperative
+multi-threaded environment. Specifically, we've said that not yielding (or
+calling a function that yields) in a critical section is just like acquiring a
+lock for that critical section. Is this still true?</p></li>
+<li><p>Briefly discuss a potential design for a scheduler that uses asynchronous
+software interrupts (signals) and true blocking instead of polling and
+busy-waiting to handle notification of I/O completion.  What information should
+be passed to the signal handler?  What information should the signal handler
+manipulate? Signals turn your scheduler into a concurrent program. Where do we
+have to look out for problems such as race conditions, deadlock, etc?</p></li>
+</ol>
+
+<h2>What To Hand In</h2>
+
+<p>You should submit:</p>
+
+<ol>
+<li><p>All code, including tests. This should include:</p>
+
+<ul>
+<li><code>switch.s</code></li>
+<li><code>queue.h</code></li>
+<li><code>queue.c</code></li>
+<li><code>scheduler.h</code></li>
+<li><code>scheduler.c</code></li>
+<li><code>async.c</code></li>
+<li><code>main.c</code></li>
+</ul></li>
+<li><p>The plain-text file you used to test seeking behavior.</p></li>
+<li><p>A brief written report, including:</p>
+
+<ol>
+<li>A description of what you did and how you tested it.</li>
+<li>Your response to the questions in "Discussion", above.</li>
+<li><strike>Your high score in the snake game.</strike> (just kidding!)</li>
+</ol></li>
+</ol>
+
+<p>Please submit your code files <em>as-is</em>; do not copy them into a Word 
+document or PDF.<br>
+Plain text is also preferred for your write-up.<br>
+You may wrap your files in an archive such as a .tar file.</p>
+
+<p>Email your submission to the TA at <u>kstew2 at cs.pdx.edu</u> on or before the
+due date. The subject line should be "CS533 Assignment 3".</p>
+
+<h2>Need Help?</h2>
+
+<p>If you have any questions or concerns, or want clarification, feel free
+to <a href="/kstew2/cs533/">contact the TA</a> by coming to office hours or sending an email.</p>
+
+<p>You may also send an email to the 
+<a href="https://mailhost.cecs.pdx.edu/mailman/listinfo/cs533">class mailing list</a>. Your
+peers will see these emails, as will the TA and professor.</p>
+
+</div>
+</body>
+</html>
