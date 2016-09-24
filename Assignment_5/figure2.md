@@ -4,4 +4,4 @@ One potential design makes almost no changes to the existing scheduler. There is
 
 In the animation below, green rectangles represent running threads, and gray rectangles represent ready threads. The infinity symbol (∞) represents an idle thread whose sole job is to `yield` in an infinite loop.
 
-[figure 2](figure2.gif)
+![figure 2](figure2.gif)
