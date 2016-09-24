@@ -374,7 +374,7 @@ Please submit your code files _as-is_; do not copy them into a Word document or 
 Plain text is also preferred for your write-up.
 You may wrap your files in an archive such as a .tar file.
 
-Email your submission to the TA at <u>kstew2 at cs.pdx.edu</u> on or before the due date. The subject line should be "CS533 Assignment 5".
+Email your submission to the [TA](https://mikelane.github.io/CS533-Operating-Systems/) on or before the due date. The subject line should be "CS533 Assignment 5".
 
 ## Need Help?
 
