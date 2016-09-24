@@ -4,7 +4,7 @@
 
 ## Overview
 
-In the [last assignment](/CS533-Operating-Systems/tree/master/Assignment_1), we developed a mechanism for context-switching between two running threads. In order for our system to be useful, however, we'd like to extend it to deal with an arbitrary number of threads that can be dynamically created (and destroyed) during program execution.
+In the [last assignment](/Assignment_1), we developed a mechanism for context-switching between two running threads. In order for our system to be useful, however, we'd like to extend it to deal with an arbitrary number of threads that can be dynamically created (and destroyed) during program execution.
 
 ## Design Choices
 
