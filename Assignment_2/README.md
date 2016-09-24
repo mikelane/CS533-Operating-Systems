@@ -37,7 +37,7 @@ In this assignment, we'll implement the following simple scheduler API:
 
 ### Preparation
 
-1.  Make a new directory for your second assignment. Copy your assembly code files from assignment 1 into the new directory. To save you time and let you focus on the important aspects of this assignment, I've written a simple queue ADT for you to use, which has an enqueue and dequeue function, and an `is_empty` predicate. Additionally, the dequeue function returns `NULL` if the queue is empty. Add the files [queue.h](/queue.h) and [queue.c](/queue.c) to your folder. It may be convenient to do this with the `wget` command in bash, e.g.:
+1.  Make a new directory for your second assignment. Copy your assembly code files from assignment 1 into the new directory. To save you time and let you focus on the important aspects of this assignment, I've written a simple queue ADT for you to use, which has an enqueue and dequeue function, and an `is_empty` predicate. Additionally, the dequeue function returns `NULL` if the queue is empty. Add the files [queue.h](queue.h) and [queue.c](queue.c) to your folder. It may be convenient to do this with the `wget` command in bash, e.g.:
 
            $ wget http://cs.pdx.edu/~kstew2/cs533/project/assign2/queue.h 
            $ wget http://cs.pdx.edu/~kstew2/cs533/project/assign2/queue.c
@@ -59,7 +59,7 @@ In this assignment, we'll implement the following simple scheduler API:
 
 3.  Start a new file called `scheduler.c` and copy your definitions of `yield` and `thread_wrap` from the first assignment. Notice that I have not instructed you to include a prototype for `thread_wrap` in `scheduler.h` Why might this be?
 
-4.  Here is a sample application: [main.c](/main.c). Take a look at it for an idea of how your scheduler API should be used. You may use this program to test your scheduler implementation, but I encourage you to create your own tests as well!
+4.  Here is a sample application: [main.c](main.c). Take a look at it for an idea of how your scheduler API should be used. You may use this program to test your scheduler implementation, but I encourage you to create your own tests as well!
 
 5.  When everything is set up, your compilation line should look something like this:
 
@@ -108,7 +108,7 @@ A snapshot of a running scheduler with a few threads might look something like t
 
 ### Testing
 
-You may use the [provided test program](/main.c), or write your own. What makes this program a good test? What more could you add?
+You may use the [provided test program](main.c), or write your own. What makes this program a good test? What more could you add?
 
 ## Discussion
 
