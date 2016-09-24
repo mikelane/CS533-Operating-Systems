@@ -12,7 +12,7 @@ Thus `buf` is implicitly protected by mutual exclusion. So, what output can we e
 
 Since our implementation of `thread_fork` causes the child thread to run immediately, `read_file` will read random bytes into the buffer, finish, and `yield`s back to main, which will then calls `zero_buf`. This fills the buffer with all zeroes. When the contents of the buffer are printed, it will be all zeroes.
 
-Now have a look at this [identical version](demo/demo2.c), where the call to `read` is replaced with [`read_wrap`](../assign3).
+Now have a look at this [identical version](demo/demo2.c), where the call to `read` is replaced with [`read_wrap`](/Assignment_3).
 
 Assuming again that `thread_fork` causes the child thread to run immediately, then `read_wrap` will run first and `yield` after starting the asynchronous read. Then `zero_buf` will run. `zero_buf` doesn't yield, so it should run to completion, and after it completes we should expect that the buffer is filled with all zeroes.
 
@@ -28,13 +28,13 @@ It's better to optimize for the common case, where there are no concurrent acces
 
 ### Conditional Waiting
 
-Another thing missing from our system so far has been a way for threads to wait until some condition becomes true, such as some quantity of a shared resource becoming available. Without concurrency, this can be done at the application level by using shared global variables and busy-waiting, but it would be more practical to give the user a structured interface, that incorporates blocking, such as condition variables (see [this slide set](http://web.cecs.pdx.edu/ ~walpole/class/cs533/fall2015/slides/2.pdf) from the start of the term).
+Another thing missing from our system so far has been a way for threads to wait until some condition becomes true, such as some quantity of a shared resource becoming available. Without concurrency, this can be done at the application level by using shared global variables and busy-waiting, but it would be more practical to give the user a structured interface, that incorporates blocking, such as condition variables (see [this slide set](http://web.cecs.pdx.edu/~walpole/class/cs533/fall2015/slides/2.pdf) from the start of the term).
 
 ## Design Choices
 
 ### Blocking vs. Busy-waiting (revisited)
 
-Recall in the [last assignment](../assign3/#blocking) that we decided in favor of busy-waiting instead of blocking while waiting for I/O completion. This is because I/O completion is an external event whose completion time is unknown, and a combination of polling and busy-waiting was the simplest solution for our purposes.
+Recall in the [last assignment](/Assignment_3#managing-notification-signals-vs-polling) that we decided in favor of busy-waiting instead of blocking while waiting for I/O completion. This is because I/O completion is an external event whose completion time is unknown, and a combination of polling and busy-waiting was the simplest solution for our purposes.
 
 However, a mutex becoming free is _not_ an external event; it is a synchronous operation that is performed by a thread. Busy-waiting for a mutex to become free is always wasted work, because there's no chance of progress: the only thing that can wake up the spinning thread is another user-level thread, who will not be making any progress while the spinner is running.
 
@@ -137,6 +137,6 @@ Email your submission to the TA at <u>kstew2 at cs.pdx.edu</u> on or before the 
 
 ## Need Help?
 
-If you have any questions or concerns, or want clarification, feel free to [contact the TA](/kstew2/cs533/) by coming to office hours or sending an email.
+If you have any questions or concerns, or want clarification, feel free to [contact the TA](https://mikelane.github.io/CS533-Operating-Systems/) by coming to office hours or sending an email.
 
 You may also send an email to the [class mailing list](https://mailhost.cecs.pdx.edu/mailman/listinfo/cs533). Your peers will see these emails, as will the TA and professor.
