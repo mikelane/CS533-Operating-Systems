@@ -8,8 +8,7 @@ So far, our system has been an "N:1" system; that is, it has been _N_ user-level
 
 However, N:1 threading is not suitable for applications that want to take advantage of multi-processor parallelism. A parallel application could instead do "1:1" threading, where each thread it wants to create runs on its own kernel thread. Linux's implementation of the `pthread_create` interface does exactly this.
 
-A disadvantage of using 1:1 threading with `pthreads` is that there is no built-in mechanism for job control. Take the simple parallel mergesort application introduced in Assignment 4 ([`sort_test.c`](../assign4/
-sort_test.c)). This application creates O(n/m) threads for a list of size n and sequential threshold m. If we tried to use `pthreads` for this, we could quickly overwhelm the operating system with work, griding all applications (not just our user-level threads program) to a halt.
+A disadvantage of using 1:1 threading with `pthreads` is that there is no built-in mechanism for job control. Take the simple parallel mergesort application introduced in Assignment 4 ([`sort_test.c`](/Assignment_4/sort_test.c)). This application creates O(n/m) threads for a list of size n and sequential threshold m. If we tried to use `pthreads` for this, we could quickly overwhelm the operating system with work, griding all applications (not just our user-level threads program) to a halt.
 
 The normal solution would be to force the application to keep track of the number of kernel threads it creates, but this complicates the parallel algorithm with book-keeping work that is irrelevant to the problem it's trying to solve.
 
@@ -60,8 +59,7 @@ Would become:
 
 ### Creating a New Kernel Thread
 
-On Linux, new kernel threads are created via the [`clone`](http://man7.org/
-linux/man-pages/man2/clone.2.html) system call.
+On Linux, new kernel threads are created via the [`clone`](http://man7.org/linux/man-pages/man2/clone.2.html) system call.
 
 `clone` looks a slightly lower level version of our `thread_fork` function: it takes a target function (`fn`) to execute, and an initial argument (`arg`), but it also requires that you supply a region of memory to be used for the child stack (`child_stack`). This parameter should be a pointer to the _end_ of a region of memory, just like how we created our user-level thread stacks in `thread_fork`.
 
@@ -115,8 +113,7 @@ Since we can now have arbitrary interleaving of instruction sequences, we will n
 
 The simplest mutual exclusion primitive using atomic instructions is a spinlock, which requires an atomic "test-and-set" instruction. The C language has no notion of atomic instructions, so in order to use a test-and-set in C code on an architecture that supports it, we would need to call assembly code directly. Furthermore, not all architectures have test-and-set. Some, like x86, have more powerful instructions like "compare-and-exchange", though this can be used to implement test-and-set.
 
-Fortunately, there is a library that abstracts away a lot of these architecture dependent details: It's called [`libatomic_ops`](https://github.com/
-ivmai/libatomic_ops).
+Fortunately, there is a library that abstracts away a lot of these architecture dependent details: It's called [`libatomic_ops`](https://github.com/ivmai/libatomic_ops).
 
 Among many other things, `libatomic_ops` provides the following types, values, functions, and macros:
 
@@ -354,8 +351,7 @@ Your task is to implement `block`, and then upgrade your mutex and condition var
 
 ### Part 5: Scalability and Discussion
 
-The design we have suggested has several issues with scalability. To help you explore these issues, we have provided an adapted version of the parallel mergesort test from the last assignment: [`sort_test.c`](
-sort_test.c). This program takes 3 command line arguments: the number of kernel threads to use, the size of the array to sort, and the minimum sub-array size before the algorithm switches to a selection sort. It assumes that `scheduler_begin` has been parameterized to allow for the creation of an arbitrary number of kernel threads.
+The design we have suggested has several issues with scalability. To help you explore these issues, we have provided an adapted version of the parallel mergesort test from the last assignment: [`sort_test.c`](sort_test.c). This program takes 3 command line arguments: the number of kernel threads to use, the size of the array to sort, and the minimum sub-array size before the algorithm switches to a selection sort. It assumes that `scheduler_begin` has been parameterized to allow for the creation of an arbitrary number of kernel threads.
 
 Explore the performance of the parallel mergesort by using the `time` command as you vary the program's parameters. Ideally, we'd like to see a linear speedup as we increase the number of threads. However, you will find that this is not the case, because of sequential bottlenecks and other overhead in the scheduler.
 
@@ -382,6 +378,6 @@ Email your submission to the TA at <u>kstew2 at cs.pdx.edu</u> on or before the 
 
 ## Need Help?
 
-If you have any questions or concerns, or want clarification, feel free to [contact the TA](/kstew2/cs533/) by coming to office hours or sending an email.
+If you have any questions or concerns, or want clarification, feel free to [contact the TA](https://mikelane.github.io/CS533-Operating-Systems/) by coming to office hours or sending an email.
 
 You may also send an email to the [class mailing list](https://mailhost.cecs.pdx.edu/mailman/listinfo/cs533). Your peers will see these emails, as will the TA and professor.
