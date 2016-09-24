@@ -4,8 +4,7 @@
 
 ## Overview
 
-Throughout this project, we will be developing various parts of a user-level interface for programming with threads, similar to that described in Birrell's [An Introduction to Programming with Threads](http://web.cecs.pdx.edu/~walpole/
-class/cs533/papers/thread_intro.pdf), with some important differences that will become clear as the project progresses.
+Throughout this project, we will be developing various parts of a user-level interface for programming with threads, similar to that described in Birrell's [An Introduction to Programming with Threads](http://web.cecs.pdx.edu/~walpole/class/cs533/papers/thread_intro.pdf), with some important differences that will become clear as the project progresses.
 
 The first part of each assignment will be a bit of overview, followed by a discussion of the design choices one is faced with when designing and implementing a particular part of the threading interface. In this assignment, we will begin to implement the data structures that store information about the threads themselves, as well as some basic mechanisms for switching control flow between two different threads.
 
@@ -43,7 +42,7 @@ Allowing the thread stacks to live in the heap allows the number of threads in t
 
 ### Context Switching
 
-Context switching refers to the control-flow jump that occurs when one thread gives up the CPU and another thread takes over. Like a function call, it involves pushing values on the system stack and manipulating CPU registers. Unlike a function call, which has explicit entry and exit points, a context switch can happen at any time, without warning. If a stack and set of registers represents everything you need to know about a control flow (its context), then the entire context must be saved before switching to another one.
+context switching refers to the control-flow jump that occurs when one thread gives up the CPU and another thread takes over. Like a function call, it involves pushing values on the system stack and manipulating CPU registers. Unlike a function call, which has explicit entry and exit points, a context switch can happen at any time, without warning. If a stack and set of registers represents everything you need to know about a control flow (its context), then the entire context must be saved before switching to another one.
 
 There is no explicit way to do this at the C language level. Therefore, context switching must be directly implemented at the assembly language level. The core assembly mechanism we will use to switch between thread stacks is to change the value of the system stack pointer register (`%rsp` on the x86-64 machines we will be using).
 
