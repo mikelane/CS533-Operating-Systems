@@ -17,11 +17,11 @@ This project also assumes some knowledge of working on the Unix/Linux command-li
 
 The project is divided into five assignments, each increasing in complexity. Assignments are due every two weeks. To complete each project, it is highly recommended that you start on them as early as possible!
 
-* Context Switching: **Due October 7**
-* Round-robin Scheduling: **Due October 21**
-* Asynchronous I/O: **Due November 4**
-* Synchronization: **Due November 18**
-* M:N Threading: **Due December 2**
+* [Context Switching](https://github.com/mikelane/CS533-Operating-Systems/tree/master/Assignment_1): **Due October 7**
+* [Round-robin Scheduling](https://github.com/mikelane/CS533-Operating-Systems/tree/master/Assignment_2): **Due October 21**
+* [Asynchronous I/O](https://github.com/mikelane/CS533-Operating-Systems/tree/master/Assignment_3): **Due November 4**
+* [Synchronization](https://github.com/mikelane/CS533-Operating-Systems/tree/master/Assignment_4): **Due November 18**
+* [M:N Threading](https://github.com/mikelane/CS533-Operating-Systems/tree/master/Assignment_5): **Due December 2**
 
 ## Grading
 
