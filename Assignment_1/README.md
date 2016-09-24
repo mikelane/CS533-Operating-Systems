@@ -53,16 +53,11 @@ There is no explicit way to do this at the C language level. Therefore, context 
 Write a C data structure, `struct thread`, to represent a thread control block. For now, it should have at least these fields:
 
 *   A stack pointer: `unsigned char* stack_pointer`
-
     *   Note: an `unsigned char` is a single byte, thus a variable of type `unsigned char*` is a pointer to an array of single bytes. However, I find it clearer to use a type without another meaning. If you want to be as clear as possible, you can add a type synonym with `typedef unsigned char byte`, and then make the type `byte*`.
 *   A pointer to an initial function: `void (*initial_function)(void*)`
-
-    *   Note: this creates a variable named `initial_function` that is a pointer to functions that take a single `void*` parameter and return no values. For more on function pointer syntax, [see here](
-        http://www.cprogramming.com/tutorial/function-pointers.html).
+    *   Note: this creates a variable named `initial_function` that is a pointer to functions that take a single `void*` parameter and return no values. For more on function pointer syntax, [see here](http://www.cprogramming.com/tutorial/function-pointers.html).
 *   A pointer to an initial argument: `void* initial_argument`
-
-    *   `void*` variables (aka void pointers) are used to allow pointers to values of _any_ type to be passed in to a function. We use them here because it gives us the most general interface for defining initial functions for threads. For more on void pointers, [see here](http://theory.uwinnipeg.ca/
-        programming/node87.html).
+    *   `void*` variables (aka void pointers) are used to allow pointers to values of _any_ type to be passed in to a function. We use them here because it gives us the most general interface for defining initial functions for threads. For more on void pointers, [see here](http://theory.uwinnipeg.ca/programming/node87.html).
 
 Write a short function that takes an argument of type `void*` and returns nothing. It can do whatever you like! Here is an example that shows off how the `void*` parameter might get used:
 
@@ -105,8 +100,7 @@ The basic way to switch between two established contexts is relatively straightf
 
       void thread_switch(struct thread * old, struct thread * new);
 
-And the following implementation (in a separate assembly file; [see here](
-asm_hints.md) for some assembly writing tips):
+And the following implementation (in a separate assembly file; [see here](asm_hints.md) for some assembly writing tips):
 
 1.  Push all callee-save registers (`%rbx, %rbp, %r12-15`) onto the current stack.
 2.  Save the current stack pointer (`%rsp`) in `old`'s thread control block.
@@ -175,8 +169,7 @@ Think about the answers to the following questions, and discuss them with your p
 
 2.  Can you think of any uses for even the very simple form of threading we've developed in this assignment? What extra features could we add to make it more useful?
 
-3.  Memory management can be a challenge in threading systems. When is it safe to free a thread's stack? What about its thread control block? How would this change if we wanted to return results from our threads, or implement a `join` procedure? (see the [Birrell article](http://web.cecs.pdx.edu/~walpole/
-    class/cs533/papers/thread_intro.pdf) for a description of `join`)
+3.  Memory management can be a challenge in threading systems. When is it safe to free a thread's stack? What about its thread control block? How would this change if we wanted to return results from our threads, or implement a `join` procedure? (see the [Birrell article](http://web.cecs.pdx.edu/~walpole/class/cs533/papers/thread_intro.pdf) for a description of `join`)
 
 ## What To Hand In
 
