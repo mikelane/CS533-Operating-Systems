@@ -4,7 +4,7 @@
 
 ## Overview
 
-In the [last assignment](../assign1), we developed a mechanism for context-switching between two running threads. In order for our system to be useful, however, we'd like to extend it to deal with an arbitrary number of threads that can be dynamically created (and destroyed) during program execution.
+In the [last assignment](/CS533-Operating-Systems/tree/master/Assignment_1), we developed a mechanism for context-switching between two running threads. In order for our system to be useful, however, we'd like to extend it to deal with an arbitrary number of threads that can be dynamically created (and destroyed) during program execution.
 
 ## Design Choices
 
@@ -37,7 +37,7 @@ In this assignment, we'll implement the following simple scheduler API:
 
 ### Preparation
 
-1.  Make a new directory for your second assignment. Copy your assembly code files from assignment 1 into the new directory. To save you time and let you focus on the important aspects of this assignment, I've written a simple queue ADT for you to use, which has an enqueue and dequeue function, and an `is_empty` predicate. Additionally, the dequeue function returns `NULL` if the queue is empty. Add the files [queue.h](queue.h) and [queue.c](queue.c) to your folder. It may be convenient to do this with the `wget` command in bash, e.g.:
+1.  Make a new directory for your second assignment. Copy your assembly code files from assignment 1 into the new directory. To save you time and let you focus on the important aspects of this assignment, I've written a simple queue ADT for you to use, which has an enqueue and dequeue function, and an `is_empty` predicate. Additionally, the dequeue function returns `NULL` if the queue is empty. Add the files [queue.h](/queue.h) and [queue.c](/queue.c) to your folder. It may be convenient to do this with the `wget` command in bash, e.g.:
 
            $ wget http://cs.pdx.edu/~kstew2/cs533/project/assign2/queue.h 
            $ wget http://cs.pdx.edu/~kstew2/cs533/project/assign2/queue.c
@@ -59,7 +59,7 @@ In this assignment, we'll implement the following simple scheduler API:
 
 3.  Start a new file called `scheduler.c` and copy your definitions of `yield` and `thread_wrap` from the first assignment. Notice that I have not instructed you to include a prototype for `thread_wrap` in `scheduler.h` Why might this be?
 
-4.  Here is a sample application: [main.c](main.c). Take a look at it for an idea of how your scheduler API should be used. You may use this program to test your scheduler implementation, but I encourage you to create your own tests as well!
+4.  Here is a sample application: [main.c](/main.c). Take a look at it for an idea of how your scheduler API should be used. You may use this program to test your scheduler implementation, but I encourage you to create your own tests as well!
 
 5.  When everything is set up, your compilation line should look something like this:
 
@@ -75,7 +75,7 @@ In this assignment, we'll implement the following simple scheduler API:
             RUNNING, // The thread is currently running.
             READY,   // The thread is not running, but is runnable.
             BLOCKED, // The thread is not running, and not runnable.
-            DONE     // The thread has finished. 
+            DONE     // The thread has finished.
           } state_t;
 
     Extend your thread control block data structure with a new field, `state_t state`. It should go at the end of the `struct` definition to avoid interfering with our assembly code's assumptions about the layout of the structure.
@@ -108,7 +108,7 @@ A snapshot of a running scheduler with a few threads might look something like t
 
 ### Testing
 
-You may use the [provided test program](main.c), or write your own. What makes this program a good test? What more could you add?
+You may use the [provided test program](/main.c), or write your own. What makes this program a good test? What more could you add?
 
 ## Discussion
 
@@ -145,6 +145,7 @@ Email your submission to the TA at <u>kstew2 at cs.pdx.edu</u> on or before the 
 
 ## Need Help?
 
-If you have any questions or concerns, or want clarification, feel free to [contact the TA](/kstew2/cs533/) by coming to office hours or sending an email.
+If you have any questions or concerns, or want clarification, feel free to [contact the TA](https://mikelane.github.io/CS533-Operating-Systems/) by coming to office hours or sending an email.
+
 
 You may also send an email to the [class mailing list](https://mailhost.cecs.pdx.edu/mailman/listinfo/cs533). Your peers will see these emails, as will the TA and professor.

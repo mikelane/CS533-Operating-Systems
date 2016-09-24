@@ -186,10 +186,10 @@ You should submit:
 Please submit your code files _as-is_; do not copy them into a Word document or PDF.
 Plain text is also preferred for your write-up.
 
-Email your submission to [the TA](../../) on or before the due date. The subject line should be "CS533 Assignment 1".
+Email your submission to [the TA](https://mikelane.github.io/CS533-Operating-Systems/) on or before the due date. The subject line should be "CS533 Assignment 1".
 
 ## Need Help?
 
-If you have any questions or concerns, or want clarification, feel free to [contact the TA](../../) by coming to office hours or sending an email.
+If you have any questions or concerns, or want clarification, feel free to [contact the TA](https://mikelane.github.io/CS533-Operating-Systems/) by coming to office hours or sending an email.
 
 You may also send an email to the [class mailing list](https://mailhost.cecs.pdx.edu/mailman/listinfo/cs533). Your peers will see these emails, as will the TA and professor.
