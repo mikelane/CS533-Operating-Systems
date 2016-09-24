@@ -10,15 +10,11 @@ The problem with this is that all of our user-level threads are running on a sin
 
 What are some solutions to this problem?
 
-*   We could [modify the Linux kernel](http://moais.imag.fr/membres/
-    vincent.danjean/linux-activations.html) to implement [scheduler activations](http://www.cs.pdx.edu/~walpole/class/
-    cs533/papers/Scheduler.pdf), though such an undertaking is beyond the scope of a this project.
+*   We could [modify the Linux kernel](http://moais.imag.fr/membres/vincent.danjean/linux-activations.html) to implement [scheduler activations](http://www.cs.pdx.edu/~walpole/class/cs533/papers/Scheduler.pdf), though such an undertaking is beyond the scope of a this project.
 
 *   We could "wrap" blocking I/O calls such that they called into our user-level scheduler, which would then block the user-level thread while it either:
 
-    *   Used the Linux kernel thread interface (either directly through [clone](http://man7.org/linux/
-        man-pages/man2/clone.2.html) or indirectly through [Pthreads](http://
-        man7.org/linux/man-pages/man7/pthreads.7.html) to create a new kernel thread to perform the blocking I/O.
+    *   Used the Linux kernel thread interface (either directly through [clone](http://man7.org/linux/man-pages/man2/clone.2.html) or indirectly through [Pthreads](http://man7.org/linux/man-pages/man7/pthreads.7.html) to create a new kernel thread to perform the blocking I/O.
 
     *   Used Linux's implementation of the POSIX [asynchronous I/O interface](http://man7.org/linux/man-pages/man7/aio.7.html) to perform the I/O. (Interestingly, Linux's implementation of POSIX AIO uses exactly the Pthreads approach described above).
 
@@ -26,8 +22,7 @@ What are some solutions to this problem?
 
 In this assignment, we will use the wrapper approach with POSIX AIO to implement a wrapper that emulates the `read` system call. `read` is used to perform blocking I/O on a file descriptor. Our wrapper should mirror the semantics of `read` as closely as possible, while only blocking one user-level thread.
 
-At this point, our system is beginning to approach the "sweet spot" described in [Adya, et al.](http://web.cecs.pdx.edu/~walpole/
-class/cs533/papers/USENIX2002.pdf): cooperative task management with automatic stack management.
+At this point, our system is beginning to approach the "sweet spot" described in [Adya, et al.](http://web.cecs.pdx.edu/~walpole/class/cs533/papers/USENIX2002.pdf): cooperative task management with automatic stack management.
 
 ## Preparation
 
@@ -56,11 +51,9 @@ Now that we have a general idea of what we want to implement and what interface 
 
 Signals are naturally preemptive, and thus introduce the possibility of a signal handler entering into a race condition with the scheduler if they need to manipulate the same data. If we had a preemptive scheduler, we would already have machinery to deal with this, but since our system is cooperative, polling is easier to implement.
 
-If you have a look at the `aio` man page, you'll see that an `aiocb` (asynchronous I/O control block) has several fields that specify the semantics of the request. One of these is `aio_sigevent`, which "specifies how the caller is to be notified when the I/O request completes." `aio_sigevent` has a subfield called `sigev_notify`, and its possible values are `SIGEV_NONE`, `SIGEV_SIGNAL`, and `SIGEV_THREAD`. These are described further in [`sigevent(7)`](http://man7.org/linux/man-pages/
-man7/sigevent.7.html), but suffice to say that `SIGEV_NONE` is the correct choice for a polling approach. If `SIGEV_NONE` is selected, none of the other fields in `aio_sigevent` need to be specified.
+If you have a look at the `aio` man page, you'll see that an `aiocb` (asynchronous I/O control block) has several fields that specify the semantics of the request. One of these is `aio_sigevent`, which "specifies how the caller is to be notified when the I/O request completes." `aio_sigevent` has a subfield called `sigev_notify`, and its possible values are `SIGEV_NONE`, `SIGEV_SIGNAL`, and `SIGEV_THREAD`. These are described further in [`sigevent(7)`](http://man7.org/linux/man-pages/man7/sigevent.7.html), but suffice to say that `SIGEV_NONE` is the correct choice for a polling approach. If `SIGEV_NONE` is selected, none of the other fields in `aio_sigevent` need to be specified.
 
-See the man page for [`aio_error`](http://man7.org/linux/man-pages/man3/
-aio_error.3.html) to see how you might poll for the status of an outstanding AIO request.
+See the man page for [`aio_error`](http://man7.org/linux/man-pages/man3/aio_error.3.html) to see how you might poll for the status of an outstanding AIO request.
 
 <a name="blocking"></a>
 
@@ -88,12 +81,11 @@ Note that any solution involving polling requires the scheduler to perform an _O
 
 </a>
 
-<a name="blocking">Recall (</a>[from section 2.2 in Behren, et al.](http://web.cecs.pdx.edu/
-~walpole/class/cs533/papers/threads-hotos-2003.pdf)) that _O(n)_ scheduler operations can introduce unacceptable latency to a workload where most threads are waiting for I/O (such as a web server). If we wanted a more scalable approach, we'd have to devise a solution that used signals instead of polling. You don't have to implement such a solution here, but you are asked to think about how you might do it in "Discussion", below.
+<a name="blocking">Recall (</a>[from section 2.2 in Behren, et al.](http://web.cecs.pdx.edu/~walpole/class/cs533/papers/threads-hotos-2003.pdf)) that _O(n)_ scheduler operations can introduce unacceptable latency to a workload where most threads are waiting for I/O (such as a web server). If we wanted a more scalable approach, we'd have to devise a solution that used signals instead of polling. You don't have to implement such a solution here, but you are asked to think about how you might do it in "Discussion", below.
 
 ## Implementation
 
-1.  Start a new file, `async.c`. Because our design involves busy-waiting, if your scheduler's implementation from [the previous assignment](../assign2) is sound, you will not have to modify any part of your previous work.
+1.  Start a new file, `async.c`. Because our design involves busy-waiting, if your scheduler's implementation from [the previous assignment](/Assignment_2) is sound, you will not have to modify any part of your previous work.
 
 2.  In addition to your `scheduler.h` file, `async.c` should `#include` the following libraries (there are some strong hints here about which functions you might need to use):
 
@@ -134,8 +126,7 @@ The easiest way to do this is to re-use your test code from assignment 2, but ad
 
 ### Correct Reading Semantics
 
-Furthermore, it is you should ensure that your implementation of `read_wrap` mirrors the semantics of `read` as closely as possible. This means that you should test that `read_wrap` correctly returns the same number of bytes as `read`, and that `read_wrap` returns an error whenever `read` returns an error. If you are up to the challenge, you can also try and ensure that [`errno`](http://man7.org/linux/
-man-pages/man3/errno.3.html) is maintained correctly.
+Furthermore, it is you should ensure that your implementation of `read_wrap` mirrors the semantics of `read` as closely as possible. This means that you should test that `read_wrap` correctly returns the same number of bytes as `read`, and that `read_wrap` returns an error whenever `read` returns an error. If you are up to the challenge, you can also try and ensure that [`errno`](http://man7.org/linux/man-pages/man3/errno.3.html) is maintained correctly.
 
 You should also test that `read_wrap` has the same seeking behavior as `read`. Standard input, pipes, and sockets are not seekable, so you will have to run tests on a real file. See [`open(2)`](http://man7.org/linux/man-pages/man2/open.2.html) for more on how to create a new file descriptor from a path name. Test code that uses `open` must `#include <fcntl.h>`.
 
@@ -177,10 +168,10 @@ Please submit your code files _as-is_; do not copy them into a Word document or 
 Plain text is also preferred for your write-up.  
 You may wrap your files in an archive such as a .tar file.
 
-Email your submission to the TA at <u>kstew2 at cs.pdx.edu</u> on or before the due date. The subject line should be "CS533 Assignment 3".
+Email your submission to the [TA](https://mikelane.github.io/CS533-Operating-Systems/) on or before the due date. The subject line should be "CS533 Assignment 3".
 
 ## Need Help?
 
-If you have any questions or concerns, or want clarification, feel free to [contact the TA](/kstew2/cs533/) by coming to office hours or sending an email.
+If you have any questions or concerns, or want clarification, feel free to [contact the TA](https://mikelane.github.io/CS533-Operating-Systems/) by coming to office hours or sending an email.
 
 You may also send an email to the [class mailing list](https://mailhost.cecs.pdx.edu/mailman/listinfo/cs533). Your peers will see these emails, as will the TA and professor.
