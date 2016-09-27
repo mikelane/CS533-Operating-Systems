@@ -1,7 +1,7 @@
 # CS533 Course Project  
 **TA: Mike Lane**  
 **Email: mikelane@gmail.com**  
-**Office Hours: TBD**  
+**Office Hours: Wednesdays at 2:00PM to 4:00PM and by appointment**  
 
 Throughout the term, you will be developing aspects of a user-level threads package, including context-switching, scheduling, and synchronization.
 
