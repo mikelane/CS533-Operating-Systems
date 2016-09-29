@@ -53,4 +53,4 @@
 If you're interested in learning more about x86-64 assembly, check out these resources:
 
 *   [Primer from Univ. of Chicago](http://www.classes.cs.uchicago.edu/archive/2009/spring/22620-1/docs/handout-03.pdf)
-*   [x86-64 ABI](http://www.x86-64.org/documentation/abi.pdf)
+*   [x86-64 ABI](http://refspecs.linuxfoundation.org/elf/x86_64-abi-0.95.pdf)
