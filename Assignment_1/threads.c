@@ -1,6 +1,3 @@
-//
-// Created by Michael Lane on 4/8/16.
-//
 #include "threads.h"
 
 int factorial(int n) {

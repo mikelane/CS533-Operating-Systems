@@ -1,6 +1,3 @@
-//
-// Created by Michael Lane on 4/8/16.
-//
 #include <stdio.h>
 
 #ifndef P1_THREADS_H

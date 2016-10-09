@@ -1,5 +1,5 @@
 # Context switching function:
-# switch(old,new)
+# thread_switch(old,new)
 .globl thread_switch
 
 thread_switch:
