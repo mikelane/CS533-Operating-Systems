@@ -37,10 +37,7 @@ In this assignment, we'll implement the following simple scheduler API:
 
 ### Preparation
 
-1.  Make a new directory for your second assignment. Copy your assembly code files from assignment 1 into the new directory. To save you time and let you focus on the important aspects of this assignment, I've written a simple queue ADT for you to use, which has an enqueue and dequeue function, and an `is_empty` predicate. Additionally, the dequeue function returns `NULL` if the queue is empty. Add the files [queue.h](queue.h) and [queue.c](queue.c) to your folder. It may be convenient to do this with the `wget` command in bash, e.g.:
-
-           $ wget http://cs.pdx.edu/~kstew2/cs533/project/assign2/queue.h 
-           $ wget http://cs.pdx.edu/~kstew2/cs533/project/assign2/queue.c
+1.  Make a new directory for your second assignment. Copy your assembly code files from assignment 1 into the new directory. To save you time and let you focus on the important aspects of this assignment, I've written a simple queue ADT for you to use, which has an enqueue and dequeue function, and an `is_empty` predicate. Additionally, the dequeue function returns `NULL` if the queue is empty. Add the files [queue.h](queue.h) and [queue.c](queue.c) to your folder. If you have downloaded, cloned, or forked the repo, the files are already on your computer and you can move them as required. If not you can get them now from github.
 
     Note: this queue implementation assumes your thread control block C `struct` is called `struct thread`. It should still work fine if you've created a `typedef`, as long as `struct thread` is still defined somewhere.
 
@@ -132,16 +129,16 @@ You should submit:
     *   `scheduler.h`
     *   `scheduler.c`
     *   `main.c`
+    
 2.  A brief written report, including:
 
     1.  A description of what you did and how you chose to test it.
 
     2.  Your responses to the discussion questions posed above. If feel like you got a good idea from a peer, make sure to cite them for it and try to give your own thoughts on their idea as well.
 
-Please submit your code files _as-is_; do not copy them into a Word document or PDF.  
-Plain text is also preferred for your write-up.
+Please submit your code files _as-is_; do not copy them into a Word document or PDF. **Plain text is also preferred for your write-up.**
 
-Email your submission to the [TA](https://mikelane.github.io/CS533-Operating-Systems) on or before the due date. The subject line should be "CS533 Assignment 2".
+Email your submission to the [TA](mikelane@gmail.com) on or before the due date. The subject line should be "CS533 Assignment 2".
 
 ## Need Help?
 
