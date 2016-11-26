@@ -140,11 +140,22 @@ You are required to implement a spinlock using these features of `libatomic_ops`
         void spinlock_lock(AO_TS_t *);
         void spinlock_unlock(AO_TS_t *);
 
-`libatomic_ops` is not a standard library and must be compiled from the source code. If you're running on `ada`, you can save time by using a version that I've already compiled. To do this, `#include <atomic_ops.h>` in your implementation file, and then when compiling, use the following flag:
+`libatomic_ops` is not a standard library and must be compiled from the source code. To do this, do the following:
 
-        gcc -I ~kstew2/local/include ...
+        $ cd
+        $ git clone https://github.com/ivmai/libatomic_ops.git
+        $ cd libatomic_ops
+        $ mkdir -p ~/local
+        $ ./autogen.sh
+        $ ./configure --prefix=$HOME/local
+        $ make
+        $ make install
 
-You should test your spinlock implementation independently of the scheduler before proceeding. To save some time, use the following program, [`spinlock_test.c`](spinlock_test.c), that does not need to be linked with the scheduler; just copy your spinlock implementation into the space indicated in the code. This program also has an example usage of `clone`.
+After the compilation, you must specify the include folder by adding the `-I` flag to gcc.
+
+You should test your spinlock implementation independently of the scheduler before proceeding. To save some time, use the following program, [`spinlock_test.c`](spinlock_test.c), that does not need to be linked with the scheduler; just copy your spinlock implementation into the space indicated in the code. This program also has an example usage of `clone`. Once you've modified `spinlock_test.c`, compile it as follows:
+
+        $ gcc -I ~/local/include -o spinlock-test -g spinlock_test.c
 
 Now that your spinlock is complete, uncomment the indicated line at the top of `threadmap.c`; this will allow the mapping data structure to be protected by your spinlock.
 
